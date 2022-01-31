@@ -1,6 +1,6 @@
 import './App.css';
 import React from "react";
-import {useVirtual} from "react-virtual";
+import {useVirtual} from "./react-virtual";
 
 
 function App(props) {
