@@ -27,6 +27,7 @@ function App(props) {
 
     return (
         <>
+            {/*这里就是用户的视窗*/}
             <div
                 ref={parentRef}
                 className="List"
@@ -44,6 +45,7 @@ function App(props) {
                         position: 'relative',
                     }}
                 >
+                    {/*具体要渲染的节点*/}
                     {rowVirtualizer.virtualItems.map(virtualRow => (
                         <div
                             key={virtualRow.index}
@@ -70,7 +72,28 @@ function App(props) {
 `react-virtual` 库提供了最为关键的方法: `useVirtual` 我们就从这里来入手他的源码:
 
 
+## useVirtual
 
+我们先看他的用法之接受参数:
+
+*   `size: Integer`
+    *   要渲染列表的数量(真实数量)
+*   `parentRef: React.useRef(DOMElement)`
+    *   一个 ref, 通过这个来操控视窗元素, 获取视窗元素的一些属性
+*   `estimateSize: Function(index) => Integer`
+    *   每一项的尺寸长度, 因为是函数, 可以根据 index 来返回不同的尺寸, 当然也可以返回常数
+*   `overscan: Integer`
+    *   除了视窗里面默认的元素, 还需要额外渲染的, 避免滚动过快, 渲染不及时
+*   `horizontal: Boolean`
+    *   决定列表是横向的还是纵向的
+*   `paddingStart: Integer`
+    *   开头的填充高度
+*   `paddingEnd: Integer`
+    *   末尾的填充高度
+*   `keyExtractor: Function(index) => String | Integer`
+    *   只要启用了动态测量渲染，并且列表中的项目的大小或顺序发生变化，就应该传递这个函数。
+
+这里也省略了很多 hook 类型的传参, 介绍了很多常用参数
 
 ## 引用
 
