@@ -71,31 +71,315 @@ function App(props) {
 
 `react-virtual` 库提供了最为关键的方法: `useVirtual` 我们就从这里来入手他的源码:
 
-
 ## useVirtual
 
 我们先看他的用法之接受参数:
 
-*   `size: Integer`
-    *   要渲染列表的数量(真实数量)
-*   `parentRef: React.useRef(DOMElement)`
-    *   一个 ref, 通过这个来操控视窗元素, 获取视窗元素的一些属性
-*   `estimateSize: Function(index) => Integer`
-    *   每一项的尺寸长度, 因为是函数, 可以根据 index 来返回不同的尺寸, 当然也可以返回常数
-*   `overscan: Integer`
-    *   除了视窗里面默认的元素, 还需要额外渲染的, 避免滚动过快, 渲染不及时
-*   `horizontal: Boolean`
-    *   决定列表是横向的还是纵向的
-*   `paddingStart: Integer`
-    *   开头的填充高度
-*   `paddingEnd: Integer`
-    *   末尾的填充高度
-*   `keyExtractor: Function(index) => String | Integer`
-    *   只要启用了动态测量渲染，并且列表中的项目的大小或顺序发生变化，就应该传递这个函数。
+* `size: Integer`
+    * 要渲染列表的数量(真实数量)
+* `parentRef: React.useRef(DOMElement)`
+    * 一个 ref, 通过这个来操控视窗元素, 获取视窗元素的一些属性
+* `estimateSize: Function(index) => Integer`
+    * 每一项的尺寸长度, 因为是函数, 可以根据 index 来返回不同的尺寸, 当然也可以返回常数
+* `overscan: Integer`
+    * 除了视窗里面默认的元素, 还需要额外渲染的, 避免滚动过快, 渲染不及时
+* `horizontal: Boolean`
+    * 决定列表是横向的还是纵向的
+* `paddingStart: Integer`
+    * 开头的填充高度
+* `paddingEnd: Integer`
+    * 末尾的填充高度
+* `keyExtractor: Function(index) => String | Integer`
+    * 只要启用了动态测量渲染，并且列表中的项目的大小或顺序发生变化，就应该传递这个函数。
 
 这里也省略了很多 hook 类型的传参, 介绍了很多常用参数
 
+hooks 返回结果:
+
+* `virtualItems: Array<item>`
+    * `item: Object`
+    * 用来遍历的变量, 视窗中渲染的数量
+* `totalSize: Integer`
+    * 整个虚拟容器的大小, 可能会变化
+* `scrollToIndex: Function(index: Integer, { align: String }) => void 0`
+    * 一个调用方法, 可以动态跳转到某一个 item 上
+* `scrollToOffset: Function(offsetInPixels: Integer, { align: String }) => void 0`
+    * 同上, 不过传递的是偏移量
+
+## 内部源码
+
+```tsx
+export function useVirtual({
+                               size = 0,
+                               estimateSize = defaultEstimateSize,
+                               overscan = 1,
+                               paddingStart = 0,
+                               paddingEnd = 0,
+                               parentRef,
+                               horizontal,
+                               scrollToFn,
+                               useObserver,
+                               initialRect,
+                               onScrollElement,
+                               scrollOffsetFn,
+                               keyExtractor = defaultKeyExtractor,
+                               measureSize = defaultMeasureSize,
+                               rangeExtractor = defaultRangeExtractor,
+                           }) {
+    // 上面是传参, 这里就不多赘述
+
+
+    // 判断是否是横向还是纵向
+    const sizeKey = horizontal ? 'width' : 'height'
+    const scrollKey = horizontal ? 'scrollLeft' : 'scrollTop'
+
+    // ref 常用的作用, 用来存值
+    const latestRef = React.useRef({
+        scrollOffset: 0,
+        measurements: [],
+    })
+
+    // 偏移量
+    const [scrollOffset, setScrollOffset] = React.useState(0)
+    latestRef.current.scrollOffset = scrollOffset // 记录最新的偏移量
+
+  // useRect hooks 方法, 可通过传参覆盖
+  // 作用是监听父元素的尺寸, 具体的 useRect 源码会放在下面
+  const useMeasureParent = useObserver || useRect
+
+    const {[sizeKey]: outerSize} = useMeasureParent(parentRef, initialRect)
+
+    latestRef.current.outerSize = outerSize
+
+    const defaultScrollToFn = React.useCallback(
+        offset => {
+            if (parentRef.current) {
+                parentRef.current[scrollKey] = offset
+            }
+        },
+        [parentRef, scrollKey]
+    )
+
+    const resolvedScrollToFn = scrollToFn || defaultScrollToFn
+
+    scrollToFn = React.useCallback(
+        offset => {
+            resolvedScrollToFn(offset, defaultScrollToFn)
+        },
+        [defaultScrollToFn, resolvedScrollToFn]
+    )
+
+    const [measuredCache, setMeasuredCache] = React.useState({})
+
+    const measure = React.useCallback(() => setMeasuredCache({}), [])
+
+    const pendingMeasuredCacheIndexesRef = React.useRef([])
+
+    const measurements = React.useMemo(() => {
+        const min =
+            pendingMeasuredCacheIndexesRef.current.length > 0
+                ? Math.min(...pendingMeasuredCacheIndexesRef.current)
+                : 0
+        pendingMeasuredCacheIndexesRef.current = []
+
+        const measurements = latestRef.current.measurements.slice(0, min)
+
+        for (let i = min; i < size; i++) {
+            const key = keyExtractor(i)
+            const measuredSize = measuredCache[key]
+            const start = measurements[i - 1] ? measurements[i - 1].end : paddingStart
+            const size =
+                typeof measuredSize === 'number' ? measuredSize : estimateSize(i)
+            const end = start + size
+            measurements[i] = {index: i, start, size, end, key}
+        }
+        return measurements
+    }, [estimateSize, measuredCache, paddingStart, size, keyExtractor])
+
+    const totalSize = (measurements[size - 1]?.end || paddingStart) + paddingEnd
+
+    latestRef.current.measurements = measurements
+    latestRef.current.totalSize = totalSize
+
+    const element = onScrollElement ? onScrollElement.current : parentRef.current
+
+    const scrollOffsetFnRef = React.useRef(scrollOffsetFn)
+    scrollOffsetFnRef.current = scrollOffsetFn
+
+    useIsomorphicLayoutEffect(() => {
+        if (!element) {
+            setScrollOffset(0)
+
+            return
+        }
+
+        const onScroll = event => {
+            const offset = scrollOffsetFnRef.current
+                ? scrollOffsetFnRef.current(event)
+                : element[scrollKey]
+
+            setScrollOffset(offset)
+        }
+
+        onScroll()
+
+        element.addEventListener('scroll', onScroll, {
+            capture: false,
+            passive: true,
+        })
+
+        return () => {
+            element.removeEventListener('scroll', onScroll)
+        }
+    }, [element, scrollKey])
+
+    const {start, end} = calculateRange(latestRef.current)
+
+    const indexes = React.useMemo(
+        () =>
+            rangeExtractor({
+                start,
+                end,
+                overscan,
+                size: measurements.length,
+            }),
+        [start, end, overscan, measurements.length, rangeExtractor]
+    )
+
+    const measureSizeRef = React.useRef(measureSize)
+    measureSizeRef.current = measureSize
+
+    const virtualItems = React.useMemo(() => {
+        const virtualItems = []
+
+        for (let k = 0, len = indexes.length; k < len; k++) {
+            const i = indexes[k]
+            const measurement = measurements[i]
+
+            const item = {
+                ...measurement,
+                measureRef: el => {
+                    if (el) {
+                        const measuredSize = measureSizeRef.current(el, horizontal)
+
+                        if (measuredSize !== item.size) {
+                            const {scrollOffset} = latestRef.current
+
+                            if (item.start < scrollOffset) {
+                                defaultScrollToFn(scrollOffset + (measuredSize - item.size))
+                            }
+
+                            pendingMeasuredCacheIndexesRef.current.push(i)
+
+                            setMeasuredCache(old => ({
+                                ...old,
+                                [item.key]: measuredSize,
+                            }))
+                        }
+                    }
+                },
+            }
+
+            virtualItems.push(item)
+        }
+
+        return virtualItems
+    }, [indexes, defaultScrollToFn, horizontal, measurements])
+
+    const mountedRef = React.useRef(false)
+
+    useIsomorphicLayoutEffect(() => {
+        if (mountedRef.current) {
+            setMeasuredCache({})
+        }
+        mountedRef.current = true
+    }, [estimateSize])
+
+    const scrollToOffset = React.useCallback(
+        (toOffset, {align = 'start'} = {}) => {
+            const {scrollOffset, outerSize} = latestRef.current
+
+            if (align === 'auto') {
+                if (toOffset <= scrollOffset) {
+                    align = 'start'
+                } else if (toOffset >= scrollOffset + outerSize) {
+                    align = 'end'
+                } else {
+                    align = 'start'
+                }
+            }
+
+            if (align === 'start') {
+                scrollToFn(toOffset)
+            } else if (align === 'end') {
+                scrollToFn(toOffset - outerSize)
+            } else if (align === 'center') {
+                scrollToFn(toOffset - outerSize / 2)
+            }
+        },
+        [scrollToFn]
+    )
+
+    const tryScrollToIndex = React.useCallback(
+        (index, {align = 'auto', ...rest} = {}) => {
+            const {measurements, scrollOffset, outerSize} = latestRef.current
+
+            const measurement = measurements[Math.max(0, Math.min(index, size - 1))]
+
+            if (!measurement) {
+                return
+            }
+
+            if (align === 'auto') {
+                if (measurement.end >= scrollOffset + outerSize) {
+                    align = 'end'
+                } else if (measurement.start <= scrollOffset) {
+                    align = 'start'
+                } else {
+                    return
+                }
+            }
+
+            const toOffset =
+                align === 'center'
+                    ? measurement.start + measurement.size / 2
+                    : align === 'end'
+                        ? measurement.end
+                        : measurement.start
+
+            scrollToOffset(toOffset, {align, ...rest})
+        },
+        [scrollToOffset, size]
+    )
+
+    const scrollToIndex = React.useCallback(
+        (...args) => {
+            // We do a double request here because of
+            // dynamic sizes which can cause offset shift
+            // and end up in the wrong spot. Unfortunately,
+            // we can't know about those dynamic sizes until
+            // we try and render them. So double down!
+            tryScrollToIndex(...args)
+            requestAnimationFrame(() => {
+                tryScrollToIndex(...args)
+            })
+        },
+        [tryScrollToIndex]
+    )
+
+    return {
+        virtualItems,
+        totalSize,
+        scrollToOffset,
+        scrollToIndex,
+        measure,
+    }
+}
+
+
+```
+
 ## 引用
 
-- https://react-virtual.tanstack.com/docs/overview 
+- https://react-virtual.tanstack.com/docs/overview
 - https://zhuanlan.zhihu.com/p/366416646
