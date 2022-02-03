@@ -143,14 +143,17 @@ export function useVirtual({
     const [scrollOffset, setScrollOffset] = React.useState(0)
     latestRef.current.scrollOffset = scrollOffset // 记录最新的偏移量
 
-  // useRect hooks 方法, 可通过传参覆盖
-  // 作用是监听父元素的尺寸, 具体的 useRect 源码会放在下面
-  const useMeasureParent = useObserver || useRect
+    // useRect hooks 方法, 可通过传参覆盖
+    // 作用是监听父元素的尺寸, 具体的 useRect 源码会放在下面
+    const useMeasureParent = useObserver || useRect
 
+    // useRect 的正式使用
     const {[sizeKey]: outerSize} = useMeasureParent(parentRef, initialRect)
 
+    //  最新的父元素尺寸, 记录
     latestRef.current.outerSize = outerSize
 
+    // 默认的滚动方法
     const defaultScrollToFn = React.useCallback(
         offset => {
             if (parentRef.current) {
@@ -160,8 +163,10 @@ export function useVirtual({
         [parentRef, scrollKey]
     )
 
+    // 被传值覆盖的一个操作
     const resolvedScrollToFn = scrollToFn || defaultScrollToFn
 
+    // 添加 useCallback 包裹, 避免 memo 问题, 真实调用的函数
     scrollToFn = React.useCallback(
         offset => {
             resolvedScrollToFn(offset, defaultScrollToFn)
@@ -169,28 +174,38 @@ export function useVirtual({
         [defaultScrollToFn, resolvedScrollToFn]
     )
 
+    // 缓存
     const [measuredCache, setMeasuredCache] = React.useState({})
 
+    // 测量的方法, 置为空对象
     const measure = React.useCallback(() => setMeasuredCache({}), [])
 
     const pendingMeasuredCacheIndexesRef = React.useRef([])
 
+    // 测量值
     const measurements = React.useMemo(() => {
+        // 循环的最小值, 判断 pendingMeasuredCacheIndexesRef 是否有值, 有则使用其中最小值, 不然就是 0
         const min =
             pendingMeasuredCacheIndexesRef.current.length > 0
                 ? Math.min(...pendingMeasuredCacheIndexesRef.current)
                 : 0
+        // 取完一次值之后置空
         pendingMeasuredCacheIndexesRef.current = []
 
+        // 取 latestRef 中的最新测量值, 第一次渲染应该是 0, slice 避免对象引用
         const measurements = latestRef.current.measurements.slice(0, min)
 
+        // 循环 measuredSize从缓存中取值, 计算每一个 item 的开始值, 和加上尺寸之后的结束值
         for (let i = min; i < size; i++) {
             const key = keyExtractor(i)
             const measuredSize = measuredCache[key]
+          // 开始值是前一个值的结束, 如果没有值, 取填充值(默认 0
             const start = measurements[i - 1] ? measurements[i - 1].end : paddingStart
+          // item 的高度
             const size =
                 typeof measuredSize === 'number' ? measuredSize : estimateSize(i)
             const end = start + size
+          // 最后加上缓存
             measurements[i] = {index: i, start, size, end, key}
         }
         return measurements
