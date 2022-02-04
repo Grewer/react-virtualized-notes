@@ -182,7 +182,7 @@ export function useVirtual({
 
     const pendingMeasuredCacheIndexesRef = React.useRef([])
 
-    // 测量值
+    // 计算测量值
     const measurements = React.useMemo(() => {
         // 循环的最小值, 判断 pendingMeasuredCacheIndexesRef 是否有值, 有则使用其中最小值, 不然就是 0
         const min =
@@ -199,51 +199,61 @@ export function useVirtual({
         for (let i = min; i < size; i++) {
             const key = keyExtractor(i)
             const measuredSize = measuredCache[key]
-          // 开始值是前一个值的结束, 如果没有值, 取填充值(默认 0
+            // 开始值是前一个值的结束, 如果没有值, 取填充值(默认 0
             const start = measurements[i - 1] ? measurements[i - 1].end : paddingStart
-          // item 的高度
+            // item 的高度, 这里就是上面所说的动态高度
             const size =
                 typeof measuredSize === 'number' ? measuredSize : estimateSize(i)
             const end = start + size
-          // 最后加上缓存
+            // 最后加上缓存
             measurements[i] = {index: i, start, size, end, key}
         }
         return measurements
     }, [estimateSize, measuredCache, paddingStart, size, keyExtractor])
 
+    // 总的列表长度
     const totalSize = (measurements[size - 1]?.end || paddingStart) + paddingEnd
 
+    // 赋值给latestRef
     latestRef.current.measurements = measurements
     latestRef.current.totalSize = totalSize
 
+    // 判断滚动元素, 可以从 props 获取, 默认是父元素的滚动
     const element = onScrollElement ? onScrollElement.current : parentRef.current
 
+    // 滚动的偏移量获取函数, 有可能为空
     const scrollOffsetFnRef = React.useRef(scrollOffsetFn)
     scrollOffsetFnRef.current = scrollOffsetFn
 
+    //  判断是否有 window, 有的话则用 useLayoutEffect, 否则使用 useEffect
     useIsomorphicLayoutEffect(() => {
+        // 如果滚动元素没有, 或者说没有渲染出来, 则返回
         if (!element) {
             setScrollOffset(0)
 
             return
         }
 
+        // 滚动的函数
         const onScroll = event => {
+            // 滚动的距离, 如果有传参数, 则使用, 否则就是用 parentRef 的
             const offset = scrollOffsetFnRef.current
                 ? scrollOffsetFnRef.current(event)
                 : element[scrollKey]
 
+            // 这里使用 setScrollOffset 会频繁触发 render, 可能会造成性能问题, 后面再查看另外的源码时, 考虑有什么好的方案
             setScrollOffset(offset)
         }
 
         onScroll()
 
+        // 添加监听
         element.addEventListener('scroll', onScroll, {
             capture: false,
             passive: true,
         })
 
-        return () => {
+        return () => { // 解除监听
             element.removeEventListener('scroll', onScroll)
         }
     }, [element, scrollKey])
