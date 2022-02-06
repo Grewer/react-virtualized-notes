@@ -258,8 +258,10 @@ export function useVirtual({
         }
     }, [element, scrollKey])
 
+    // 具体源码解析在下方, 作用是通过计算得出范围 start, end 都是数字
     const {start, end} = calculateRange(latestRef.current)
 
+    // 索引, 计算最低和最高的显示索引 最后得出数字数组, 如 [0,1,2,...,20] 类似这样
     const indexes = React.useMemo(
         () =>
             rangeExtractor({
@@ -271,26 +273,35 @@ export function useVirtual({
         [start, end, overscan, measurements.length, rangeExtractor]
     )
 
+    // 传值measureSize, 默认是通过元素获取 offset
     const measureSizeRef = React.useRef(measureSize)
     measureSizeRef.current = measureSize
 
+    // 真实视图中显示的元素, 会返回出去
     const virtualItems = React.useMemo(() => {
         const virtualItems = []
-
+        // 根据索引循环 indexex 类似于 [0,1,2,3,...,20]
         for (let k = 0, len = indexes.length; k < len; k++) {
             const i = indexes[k]
+
+            // 这里是索引对应的数据集合, 有开始尺寸,结束尺寸, 宽度, key等等
             const measurement = measurements[i]
 
+            // item 的数据
             const item = {
                 ...measurement,
                 measureRef: el => {
+                    // 额外有一个 ref, 可以不使用
+                    // 一般是用来测量动态渲染的元素
                     if (el) {
                         const measuredSize = measureSizeRef.current(el, horizontal)
 
+                        // 真实尺寸和记录的尺寸不同的时候, 更新
                         if (measuredSize !== item.size) {
                             const {scrollOffset} = latestRef.current
 
                             if (item.start < scrollOffset) {
+                                // 滚动
                                 defaultScrollToFn(scrollOffset + (measuredSize - item.size))
                             }
 
@@ -311,6 +322,7 @@ export function useVirtual({
         return virtualItems
     }, [indexes, defaultScrollToFn, horizontal, measurements])
 
+    // 标记是否 mounted,  就是平常使用的 useMount
     const mountedRef = React.useRef(false)
 
     useIsomorphicLayoutEffect(() => {
@@ -402,6 +414,26 @@ export function useVirtual({
 }
 
 
+```
+
+## calculateRange
+
+```tsx
+function calculateRange({measurements, outerSize, scrollOffset}) {
+    const size = measurements.length - 1
+    const getOffset = index => measurements[index].start
+
+    // 通过二分法找到 scrollOffset 对应的值
+    let start = findNearestBinarySearch(0, size, getOffset, scrollOffset)
+    let end = start
+
+    // 类似于 通过比例计算出最后的 end 数值
+    while (end < size && measurements[end].end < scrollOffset + outerSize) {
+        end++
+    }
+
+    return {start, end}
+}
 ```
 
 ## 引用
