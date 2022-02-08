@@ -444,6 +444,16 @@ function calculateRange({measurements, outerSize, scrollOffset}) {
 }
 ```
 
+## 总结
+
+虚拟列表的基础就是依靠着 css 的定位, 和 JS 的计算, 他两的绝妙搭配出现的  
+`react-virtual` 库给出了 JS 的计算, 而 CSS 的定位和布局除了现在仓库中的方案, 其实还有其他的一些可以说道的地方,
+我将会在后面的博客中一一阐述
+
+
+使用仓库:  
+https://github.com/Grewer/react-virtualized-notes
+
 ## 引用
 
 - https://react-virtual.tanstack.com/docs/overview
