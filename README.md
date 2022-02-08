@@ -327,13 +327,16 @@ export function useVirtual({
 
     useIsomorphicLayoutEffect(() => {
         if (mountedRef.current) {
+            // mounted 时 重置缓存
             setMeasuredCache({})
         }
         mountedRef.current = true
     }, [estimateSize])
 
+    // 滚动函数
     const scrollToOffset = React.useCallback(
         (toOffset, {align = 'start'} = {}) => {
+            // 获取最新的滚动距离, 尺寸
             const {scrollOffset, outerSize} = latestRef.current
 
             if (align === 'auto') {
@@ -346,6 +349,8 @@ export function useVirtual({
                 }
             }
 
+
+            // 调用 scrollToFn, 真实滚动的方法
             if (align === 'start') {
                 scrollToFn(toOffset)
             } else if (align === 'end') {
@@ -357,10 +362,12 @@ export function useVirtual({
         [scrollToFn]
     )
 
+    // 滚动到某一个 item 上
     const tryScrollToIndex = React.useCallback(
         (index, {align = 'auto', ...rest} = {}) => {
             const {measurements, scrollOffset, outerSize} = latestRef.current
 
+            //通过 index, 获取他的缓存数据
             const measurement = measurements[Math.max(0, Math.min(index, size - 1))]
 
             if (!measurement) {
@@ -377,25 +384,25 @@ export function useVirtual({
                 }
             }
 
+            // 计算要滚动的距离
             const toOffset =
                 align === 'center'
                     ? measurement.start + measurement.size / 2
                     : align === 'end'
                         ? measurement.end
                         : measurement.start
-
+            // 调用滚动函数
             scrollToOffset(toOffset, {align, ...rest})
         },
         [scrollToOffset, size]
     )
 
+    // 外部包裹函数, 为什么不直接使用 tryScrollToIndex
+    // 因为动态尺寸会导致偏移并最终出现在错误的地方。
+    // 在我们尝试渲染它们之前，我们无法知道这些动态尺寸的情况。
+    // 这里也是一个可能会出现bug的地方
     const scrollToIndex = React.useCallback(
         (...args) => {
-            // We do a double request here because of
-            // dynamic sizes which can cause offset shift
-            // and end up in the wrong spot. Unfortunately,
-            // we can't know about those dynamic sizes until
-            // we try and render them. So double down!
             tryScrollToIndex(...args)
             requestAnimationFrame(() => {
                 tryScrollToIndex(...args)
@@ -404,6 +411,7 @@ export function useVirtual({
         [tryScrollToIndex]
     )
 
+    // 最后抛出的函数,变量
     return {
         virtualItems,
         totalSize,
