@@ -41,7 +41,7 @@ const FixedSizeList = createListComponent({
 
 export default FixedSizeList;
 ```
-我们先看 createListComponent 方法:
+我们先看 createListComponent 方法(这里我会忽略掉 flow 的部分语法):
 
 ```tsx
 export default function createListComponent({
@@ -54,30 +54,26 @@ export default function createListComponent({
   initInstanceProps,
   shouldResetStyleCacheOnItemSizeChange,
   validateProps,
-}: {|
-  getItemOffset: GetItemOffset,
-  getEstimatedTotalSize: GetEstimatedTotalSize,
-  getItemSize: GetItemSize,
-  getOffsetForIndexAndAlignment: GetOffsetForIndexAndAlignment,
-  getStartIndexForOffset: GetStartIndexForOffset,
-  getStopIndexForStartIndex: GetStopIndexForStartIndex,
-  initInstanceProps: InitInstanceProps,
-  shouldResetStyleCacheOnItemSizeChange: boolean,
-  validateProps: ValidateProps,
-|}) {
-  return class List<T> extends PureComponent<Props<T>, State> {
+}) {
+    //直接就返回一个 class 组件, 没有闭包变量
+  return class List extends PureComponent {
+      //  初始化的时候获取的 props 参数
     _instanceProps: any = initInstanceProps(this.props, this);
+    //外部元素 ref 对象
     _outerRef: ?HTMLDivElement;
+    // 用来存取 定时器的
     _resetIsScrollingTimeoutId: TimeoutID | null = null;
 
+    // 默认的参数
     static defaultProps = {
-      direction: 'ltr',
-      itemData: undefined,
-      layout: 'vertical',
-      overscanCount: 2,
-      useIsScrolling: false,
+      direction: 'ltr', //  方向
+      itemData: undefined, // 每一个 item 的对象
+      layout: 'vertical', // 布局
+      overscanCount: 2, // 上部和下部超出的 item 个数
+      useIsScrolling: false, // 是否正在滚动
     };
 
+    // 组件的 state
     state: State = {
       instance: this,
       isScrolling: false,
@@ -85,17 +81,16 @@ export default function createListComponent({
       scrollOffset:
         typeof this.props.initialScrollOffset === 'number'
           ? this.props.initialScrollOffset
-          : 0,
+          : 0, // 根据 props 来判断
       scrollUpdateWasRequested: false,
     };
 
-    // Always use explicit constructor for React components.
-    // It produces less code after transpilation. (#26)
-    // eslint-disable-next-line no-useless-constructor
+    // constructor
     constructor(props: Props<T>) {
       super(props);
     }
 
+    //  props 到 state 的映射
     static getDerivedStateFromProps(
       nextProps: Props<T>,
       prevState: State
