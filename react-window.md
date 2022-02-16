@@ -95,26 +95,33 @@ export default function createListComponent({
       nextProps: Props<T>,
       prevState: State
     ): $Shape<State> | null {
-        // 这个函数具体的源码我们再下面说明
+        // 这个函数具体的源码我们在下面说明
+        // 对于 下一步收到的 props 和上一步的 state, 做出判断
+        // 如果收到的参数不规范则会报错, 可以忽略
       validateSharedProps(nextProps, prevState);
       // validateProps 此方法是外部传递的, note 1
       validateProps(nextProps);
       return null;
     }
 
+// 滚动至某一位置
     scrollTo(scrollOffset: number): void {
+      // 确保 scrollOffset 大于 0
       scrollOffset = Math.max(0, scrollOffset);
 
       this.setState(prevState => {
+        // 同样地就 return
         if (prevState.scrollOffset === scrollOffset) {
           return null;
         }
+        // 直接设置 scrollOffset
         return {
           scrollDirection:
             prevState.scrollOffset < scrollOffset ? 'forward' : 'backward',
           scrollOffset: scrollOffset,
           scrollUpdateWasRequested: true,
         };
+        // 回调
       }, this._resetIsScrollingDebounced);
     }
 
@@ -516,10 +523,13 @@ export default function createListComponent({
     };
 
     _resetIsScrollingDebounced = () => {
+      // 避免同一时间多次调用 此函数, 起到一个节流的作用
       if (this._resetIsScrollingTimeoutId !== null) {
         cancelTimeout(this._resetIsScrollingTimeoutId);
       }
 
+      // requestTimeout 是一个工具函数, 在延迟 IS_SCROLLING_DEBOUNCE_INTERVAL = 150 ms 之后运行, 类似 setTimeout, 但是为什么不直接使用
+      // 需要注意 requestAnimationFrame 和 setTimeout的区别
       this._resetIsScrollingTimeoutId = requestTimeout(
         this._resetIsScrolling,
         IS_SCROLLING_DEBOUNCE_INTERVAL
@@ -538,185 +548,6 @@ export default function createListComponent({
   };
 }
 
-// NOTE: I considered further wrapping individual items with a pure ListItem component.
-// This would avoid ever calling the render function for the same index more than once,
-// But it would also add the overhead of a lot of components/fibers.
-// I assume people already do this (render function returning a class component),
-// So my doing it would just unnecessarily double the wrappers.
-
-const validateSharedProps = (
-  {
-    children,
-    direction,
-    height,
-    layout,
-    innerTagName,
-    outerTagName,
-    width,
-  }: Props<any>,
-  { instance }: State
-): void => {
-  if (process.env.NODE_ENV !== 'production') {
-    if (innerTagName != null || outerTagName != null) {
-      if (devWarningsTagName && !devWarningsTagName.has(instance)) {
-        devWarningsTagName.add(instance);
-        console.warn(
-          'The innerTagName and outerTagName props have been deprecated. ' +
-            'Please use the innerElementType and outerElementType props instead.'
-        );
-      }
-    }
-
-    // TODO Deprecate direction "horizontal"
-    const isHorizontal = direction === 'horizontal' || layout === 'horizontal';
-
-    switch (direction) {
-      case 'horizontal':
-      case 'vertical':
-        if (devWarningsDirection && !devWarningsDirection.has(instance)) {
-          devWarningsDirection.add(instance);
-          console.warn(
-            'The direction prop should be either "ltr" (default) or "rtl". ' +
-              'Please use the layout prop to specify "vertical" (default) or "horizontal" orientation.'
-          );
-        }
-        break;
-      case 'ltr':
-      case 'rtl':
-        // Valid values
-        break;
-      default:
-        throw Error(
-          'An invalid "direction" prop has been specified. ' +
-            'Value should be either "ltr" or "rtl". ' +
-            `"${direction}" was specified.`
-        );
-    }
-
-    switch (layout) {
-      case 'horizontal':
-      case 'vertical':
-        // Valid values
-        break;
-      default:
-        throw Error(
-          'An invalid "layout" prop has been specified. ' +
-            'Value should be either "horizontal" or "vertical". ' +
-            `"${layout}" was specified.`
-        );
-    }
-
-    if (children == null) {
-      throw Error(
-        'An invalid "children" prop has been specified. ' +
-          'Value should be a React component. ' +
-          `"${children === null ? 'null' : typeof children}" was specified.`
-      );
-    }
-
-    if (isHorizontal && typeof width !== 'number') {
-      throw Error(
-        'An invalid "width" prop has been specified. ' +
-          'Horizontal lists must specify a number for width. ' +
-          `"${width === null ? 'null' : typeof width}" was specified.`
-      );
-    } else if (!isHorizontal && typeof height !== 'number') {
-      throw Error(
-        'An invalid "height" prop has been specified. ' +
-          'Vertical lists must specify a number for height. ' +
-          `"${height === null ? 'null' : typeof height}" was specified.`
-      );
-    }
-  }
-};
-
 ```
 
-### validateSharedProps
-```
-const validateSharedProps = (
-  {
-    children,
-    direction,
-    height,
-    layout,
-    innerTagName,
-    outerTagName,
-    width,
-  }: Props<any>,
-  { instance }: State
-): void => {
-  if (process.env.NODE_ENV !== 'production') {
-    if (innerTagName != null || outerTagName != null) {
-      if (devWarningsTagName && !devWarningsTagName.has(instance)) {
-        devWarningsTagName.add(instance);
-        console.warn(
-          'The innerTagName and outerTagName props have been deprecated. ' +
-            'Please use the innerElementType and outerElementType props instead.'
-        );
-      }
-    }
-
-    // TODO Deprecate direction "horizontal"
-    const isHorizontal = direction === 'horizontal' || layout === 'horizontal';
-
-    switch (direction) {
-      case 'horizontal':
-      case 'vertical':
-        if (devWarningsDirection && !devWarningsDirection.has(instance)) {
-          devWarningsDirection.add(instance);
-          console.warn(
-            'The direction prop should be either "ltr" (default) or "rtl". ' +
-              'Please use the layout prop to specify "vertical" (default) or "horizontal" orientation.'
-          );
-        }
-        break;
-      case 'ltr':
-      case 'rtl':
-        // Valid values
-        break;
-      default:
-        throw Error(
-          'An invalid "direction" prop has been specified. ' +
-            'Value should be either "ltr" or "rtl". ' +
-            `"${direction}" was specified.`
-        );
-    }
-
-    switch (layout) {
-      case 'horizontal':
-      case 'vertical':
-        // Valid values
-        break;
-      default:
-        throw Error(
-          'An invalid "layout" prop has been specified. ' +
-            'Value should be either "horizontal" or "vertical". ' +
-            `"${layout}" was specified.`
-        );
-    }
-
-    if (children == null) {
-      throw Error(
-        'An invalid "children" prop has been specified. ' +
-          'Value should be a React component. ' +
-          `"${children === null ? 'null' : typeof children}" was specified.`
-      );
-    }
-
-    if (isHorizontal && typeof width !== 'number') {
-      throw Error(
-        'An invalid "width" prop has been specified. ' +
-          'Horizontal lists must specify a number for width. ' +
-          `"${width === null ? 'null' : typeof width}" was specified.`
-      );
-    } else if (!isHorizontal && typeof height !== 'number') {
-      throw Error(
-        'An invalid "height" prop has been specified. ' +
-          'Vertical lists must specify a number for height. ' +
-          `"${height === null ? 'null' : typeof height}" was specified.`
-      );
-    }
-  }
-};
-```
+validateProps,
