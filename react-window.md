@@ -529,7 +529,7 @@ export default function createListComponent({
       }
 
       // requestTimeout 是一个工具函数, 在延迟 IS_SCROLLING_DEBOUNCE_INTERVAL = 150 ms 之后运行, 类似 setTimeout, 但是为什么不直接使用
-      // 需要注意 requestAnimationFrame 和 setTimeout的区别
+      // 引出额外的问题 setTimeout和requestAnimationFrame 的区别, 有兴趣的可以自行了解
       this._resetIsScrollingTimeoutId = requestTimeout(
         this._resetIsScrolling,
         IS_SCROLLING_DEBOUNCE_INTERVAL
@@ -537,11 +537,15 @@ export default function createListComponent({
     };
 
     _resetIsScrolling = () => {
+      // 执行的时候清空id
       this._resetIsScrollingTimeoutId = null;
 
       this.setState({ isScrolling: false }, () => {
-        // Clear style cache after state update has been committed.
-        // This way we don't break pure sCU for items that don't use isScrolling param.
+        // 在状态更新操作
+        // 避免isScrolling的影响
+        //  _getItemStyleCache 的具体作用, 他是一个经过 memoizeOne 过的函数
+        // 而 memoizeOne 是来源于`memoize-one`仓库 https://www.npmjs.com/package/memoize-one
+        // 用处是缓存最近的一个结果
         this._getItemStyleCache(-1, null);
       });
     };
@@ -551,3 +555,4 @@ export default function createListComponent({
 ```
 
 validateProps,
+
