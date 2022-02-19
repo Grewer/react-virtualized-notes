@@ -116,6 +116,7 @@ export default function createListComponent({
         }
         // 直接设置 scrollOffset
         return {
+          // 滚动的方向
           scrollDirection:
             prevState.scrollOffset < scrollOffset ? 'forward' : 'backward',
           scrollOffset: scrollOffset,
@@ -125,12 +126,17 @@ export default function createListComponent({
       }, this._resetIsScrollingDebounced);
     }
 
+    // 方法同上, 作用是滚动至某一个 item 上面
     scrollToItem(index: number, align: ScrollToAlign = 'auto'): void {
       const { itemCount } = this.props;
       const { scrollOffset } = this.state;
 
+      // 保证 index 在 0 和 item 最大值之间
       index = Math.max(0, Math.min(index, itemCount - 1));
 
+      // 调用 scrollTo 方法, 参数是 getOffsetForIndexAndAlignment 的返回值
+      // 此函数作用是通过 index 获取对应 item 的偏移量, 最后通过偏移量滚动至对应的 item
+      // 函数通过  createListComponent 的传参获取, 不同的 list/grid, 可能有不用的方案
       this.scrollTo(
         getOffsetForIndexAndAlignment(
           this.props,
@@ -142,9 +148,11 @@ export default function createListComponent({
       );
     }
 
+    // mount 所作的事情
     componentDidMount() {
       const { direction, initialScrollOffset, layout } = this.props;
 
+      // initialScrollOffset 是数字且 _outerRef 正常
       if (typeof initialScrollOffset === 'number' && this._outerRef != null) {
         const outerRef = ((this._outerRef: any): HTMLElement);
         // TODO Deprecate direction "horizontal"
@@ -163,14 +171,12 @@ export default function createListComponent({
       const { scrollOffset, scrollUpdateWasRequested } = this.state;
 
       if (scrollUpdateWasRequested && this._outerRef != null) {
-        const outerRef = ((this._outerRef: any): HTMLElement);
+        const outerRef = ((this._outerRef: any): HTMLElement); // outerRef可以说是最外层元素的 ref 对象
 
-        // TODO Deprecate direction "horizontal"
+        // 这里因为版本问题 可能还会去除  direction 的 horizontal 判断
         if (direction === 'horizontal' || layout === 'horizontal') {
           if (direction === 'rtl') {
-            // TRICKY According to the spec, scrollLeft should be negative for RTL aligned elements.
-            // This is not the case for all browsers though (e.g. Chrome reports values as positive, measured relative to the left).
-            // So we need to determine which browser behavior we're dealing with, and mimic it.
+            // 针对不同的类型 来左右滚动至最 scrollOffset 的偏移量
             switch (getRTLOffsetType()) {
               case 'negative':
                 outerRef.scrollLeft = -scrollOffset;
@@ -187,10 +193,13 @@ export default function createListComponent({
             outerRef.scrollLeft = scrollOffset;
           }
         } else {
+          // 针对上下的滚动
           outerRef.scrollTop = scrollOffset;
         }
       }
 
+      // 调用此函数
+      // 作用是:  TODO
       this._callPropsCallbacks();
     }
 
@@ -545,7 +554,7 @@ export default function createListComponent({
         // 避免isScrolling的影响
         //  _getItemStyleCache 的具体作用, 他是一个经过 memoizeOne 过的函数
         // 而 memoizeOne 是来源于`memoize-one`仓库 https://www.npmjs.com/package/memoize-one
-        // 用处是缓存最近的一个结果
+        // 用处是缓存最近的一个结果 而这里是返回一个空对象
         this._getItemStyleCache(-1, null);
       });
     };
