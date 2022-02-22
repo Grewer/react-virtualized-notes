@@ -238,6 +238,7 @@ export default function createListComponent({
         ? this._onScrollHorizontal
         : this._onScrollVertical;
 
+// 返回节点的范围 [真实起点, 真实终点]
       const [startIndex, stopIndex] = this._getRangeToRender();
 
       const items = [];
@@ -297,6 +298,7 @@ export default function createListComponent({
       visibleStartIndex: number,
       visibleStopIndex: number
     ) => void;
+    // 作用 , 缓存最新的这四份数据
     _callOnItemsRendered = memoizeOne(
       (
         overscanStartIndex: number,
@@ -331,15 +333,20 @@ export default function createListComponent({
     );
 
     _callPropsCallbacks() {
+      // 判断来自 props 的 onItemsRendered是否是函数
       if (typeof this.props.onItemsRendered === 'function') {
         const { itemCount } = this.props;
         if (itemCount > 0) {
+          // 总的数量大于 0 时
+          // 从_getRangeToRender获取节点的范围
           const [
-            overscanStartIndex,
-            overscanStopIndex,
-            visibleStartIndex,
-            visibleStopIndex,
+            overscanStartIndex, // 真实的起点
+            overscanStopIndex, // 真实的终点
+            visibleStartIndex, // 视图的起点
+            visibleStopIndex, // 视图的终点
           ] = this._getRangeToRender();
+
+          // 调用 _callOnItemsRendered, 更新缓存
           this._callOnItemsRendered(
             overscanStartIndex,
             overscanStopIndex,
@@ -349,6 +356,7 @@ export default function createListComponent({
         }
       }
 
+// 如果传递了 onScroll 函数过来
       if (typeof this.props.onScroll === 'function') {
         const {
           scrollDirection,
@@ -407,18 +415,23 @@ export default function createListComponent({
     _getItemStyleCache = memoizeOne((_: any, __: any, ___: any) => ({}));
 
     _getRangeToRender(): [number, number, number, number] {
+      // 数量相关数据
       const { itemCount, overscanCount } = this.props;
+      // 是否滚动, 滚动方向, 滚动距离
       const { isScrolling, scrollDirection, scrollOffset } = this.state;
 
+      // 如果数量为 0  则 return
       if (itemCount === 0) {
         return [0, 0, 0, 0];
       }
 
+      // 开始的x序号  getStartIndexForOffset 来源于 闭包传递, 通过距离来获取序号 
       const startIndex = getStartIndexForOffset(
         this.props,
         scrollOffset,
         this._instanceProps
       );
+      // 结束的序号, 作用同上, 但是获取的是结束的序号
       const stopIndex = getStopIndexForStartIndex(
         this.props,
         startIndex,
@@ -426,8 +439,7 @@ export default function createListComponent({
         this._instanceProps
       );
 
-      // Overscan by one item in each direction so that tab/focus works.
-      // If there isn't at least one extra item, tab loops back around.
+      // 超出的范围的数量, 前, 后 两个变量
       const overscanBackward =
         !isScrolling || scrollDirection === 'backward'
           ? Math.max(1, overscanCount)
@@ -437,6 +449,7 @@ export default function createListComponent({
           ? Math.max(1, overscanCount)
           : 1;
 
+      // 最终返回数据, [开始的节点序号-超出的节点,结束的节点序号+超出的节点, 开始的节点序号, 结束的节点序号]
       return [
         Math.max(0, startIndex - overscanBackward),
         Math.max(0, Math.min(itemCount - 1, stopIndex + overscanForward)),
