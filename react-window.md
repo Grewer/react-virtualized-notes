@@ -199,16 +199,18 @@ export default function createListComponent({
       }
 
       // 调用此函数
-      // 作用是:  TODO
+      // 作用是:  缓存节点, 滚动状态等数据
       this._callPropsCallbacks();
     }
 
+    // 组件离开时清空定时器
     componentWillUnmount() {
       if (this._resetIsScrollingTimeoutId !== null) {
         cancelTimeout(this._resetIsScrollingTimeoutId);
       }
     }
 
+    // 渲染函数
     render() {
       const {
         children,
@@ -228,12 +230,14 @@ export default function createListComponent({
         useIsScrolling,
         width,
       } = this.props;
+      // 是否滚动
       const { isScrolling } = this.state;
 
-      // TODO Deprecate direction "horizontal"
+      // direction "horizontal"  兼容老数据
       const isHorizontal =
         direction === 'horizontal' || layout === 'horizontal';
 
+      // 当滚动时的回调, 针对不同方向
       const onScroll = isHorizontal
         ? this._onScrollHorizontal
         : this._onScrollVertical;
@@ -314,6 +318,7 @@ export default function createListComponent({
         })
     );
 
+// 缓存这 3 个数据
     _callOnScroll: (
       scrollDirection: ScrollDirection,
       scrollOffset: number,
@@ -356,13 +361,14 @@ export default function createListComponent({
         }
       }
 
-// 如果传递了 onScroll 函数过来
+      // 如果传递了 onScroll 函数过来
       if (typeof this.props.onScroll === 'function') {
         const {
           scrollDirection,
           scrollOffset,
           scrollUpdateWasRequested,
         } = this.state;
+        // 调用此函数, 作用同样是缓存数据
         this._callOnScroll(
           scrollDirection,
           scrollOffset,
@@ -458,13 +464,12 @@ export default function createListComponent({
       ];
     }
 
+    // 大体作用会和 _onScrollVertical 类似
     _onScrollHorizontal = (event: ScrollEvent): void => {
       const { clientWidth, scrollLeft, scrollWidth } = event.currentTarget;
       this.setState(prevState => {
         if (prevState.scrollOffset === scrollLeft) {
-          // Scroll position may have been updated by cDM/cDU,
-          // In which case we don't need to trigger another render,
-          // And we don't want to update state.isScrolling.
+          // 如果滚动距离不变
           return null;
         }
 
@@ -472,10 +477,7 @@ export default function createListComponent({
 
         let scrollOffset = scrollLeft;
         if (direction === 'rtl') {
-          // TRICKY According to the spec, scrollLeft should be negative for RTL aligned elements.
-          // This is not the case for all browsers though (e.g. Chrome reports values as positive, measured relative to the left).
-          // It's also easier for this component if we convert offsets to the same format as they would be in for ltr.
-          // So the simplest solution is to determine which browser behavior we're dealing with, and convert based on it.
+          // 根据方向确定滚动距离
           switch (getRTLOffsetType()) {
             case 'negative':
               scrollOffset = -scrollLeft;
@@ -486,7 +488,7 @@ export default function createListComponent({
           }
         }
 
-        // Prevent Safari's elastic scrolling from causing visual shaking when scrolling past bounds.
+        // 保证距离在范围之内, 同时 Safari在越界时会有晃动
         scrollOffset = Math.max(
           0,
           Math.min(scrollOffset, scrollWidth - clientWidth)
