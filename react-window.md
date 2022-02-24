@@ -242,11 +242,12 @@ export default function createListComponent({
         ? this._onScrollHorizontal
         : this._onScrollVertical;
 
-// 返回节点的范围 [真实起点, 真实终点]
+      // 返回节点的范围 [真实起点, 真实终点]
       const [startIndex, stopIndex] = this._getRangeToRender();
 
       const items = [];
       if (itemCount > 0) {
+        // 循环所有 item 数来创建 item, createElement 传递参数
         for (let index = startIndex; index <= stopIndex; index++) {
           items.push(
             createElement(children, {
@@ -260,13 +261,15 @@ export default function createListComponent({
         }
       }
 
-      // Read this value AFTER items have been created,
-      // So their actual sizes (if variable) are taken into consideration.
+      
+      // getEstimatedTotalSize来自 父函数 props
+      // 在项目被创建后读取这个值，因此它们的实际尺寸（如果是可变的）被考虑在内
       const estimatedTotalSize = getEstimatedTotalSize(
         this.props,
         this._instanceProps
       );
 
+      // 动态, 可配置性地创建组件
       return createElement(
         outerElementType || outerTagName || 'div',
         {
@@ -279,7 +282,7 @@ export default function createListComponent({
             width,
             overflow: 'auto',
             WebkitOverflowScrolling: 'touch',
-            willChange: 'transform',
+            willChange: 'transform', // 提前优化, 相当于整体包装
             direction,
             ...style,
           },
@@ -377,14 +380,15 @@ export default function createListComponent({
       }
     }
 
-    // Lazily create and cache item styles while scrolling,
-    // So that pure component sCU will prevent re-renders.
-    // We maintain this cache, and pass a style prop rather than index,
-    // So that List can clear cached styles and force item re-render if necessary.
+    // 在滚动时 lazy 地创建和缓存项目的样式，
+    // 这样 pure 组件的就可以防止重新渲染。
+    // 维护这个缓存，并传递一个props而不是index，
+    // 这样List就可以清除缓存的样式并在必要时强制重新渲染项目
     _getItemStyle: (index: number) => Object;
     _getItemStyle = (index: number): Object => {
       const { direction, itemSize, layout } = this.props;
 
+      // 缓存
       const itemStyleCache = this._getItemStyleCache(
         shouldResetStyleCacheOnItemSizeChange && itemSize,
         shouldResetStyleCacheOnItemSizeChange && layout,
@@ -392,18 +396,22 @@ export default function createListComponent({
       );
 
       let style;
+      // 有缓存则取缓存, 注意 hasOwnProperty 和 in  [index] 的区别
       if (itemStyleCache.hasOwnProperty(index)) {
         style = itemStyleCache[index];
       } else {
+        // getItemOffset 和 getItemSize 来自父函数 props
         const offset = getItemOffset(this.props, index, this._instanceProps);
         const size = getItemSize(this.props, index, this._instanceProps);
 
-        // TODO Deprecate direction "horizontal"
         const isHorizontal =
           direction === 'horizontal' || layout === 'horizontal';
 
         const isRtl = direction === 'rtl';
         const offsetHorizontal = isHorizontal ? offset : 0;
+
+        // 缓存 index:{} 至 itemStyleCache 对象
+
         itemStyleCache[index] = style = {
           position: 'absolute',
           left: isRtl ? undefined : offsetHorizontal,
@@ -504,17 +512,14 @@ export default function createListComponent({
       }, this._resetIsScrollingDebounced);
     };
 
+// 同上 , 这里就不多说了
     _onScrollVertical = (event: ScrollEvent): void => {
       const { clientHeight, scrollHeight, scrollTop } = event.currentTarget;
       this.setState(prevState => {
         if (prevState.scrollOffset === scrollTop) {
-          // Scroll position may have been updated by cDM/cDU,
-          // In which case we don't need to trigger another render,
-          // And we don't want to update state.isScrolling.
           return null;
         }
 
-        // Prevent Safari's elastic scrolling from causing visual shaking when scrolling past bounds.
         const scrollOffset = Math.max(
           0,
           Math.min(scrollTop, scrollHeight - clientHeight)
