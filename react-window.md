@@ -37,6 +37,33 @@ const App = () => (
 ```tsx
 const FixedSizeList = createListComponent({
     // ...
+    // 这里陈列几个函数和他的具体作用
+
+    // 滚动至 scrollOffset 的位置
+    scrollTo = (scrollOffset: number):void
+
+    // 滚动至某一 item 上, 通过传递对应序号
+    scrollToItem(index: number, align: ScrollToAlign = 'auto'): void
+
+    // 缓存参数
+    _callOnItemsRendered: (
+      overscanStartIndex: number,
+      overscanStopIndex: number,
+      visibleStartIndex: number,
+      visibleStopIndex: number
+    ) => void;
+
+    // 通过 index 来获取对应的style, 其中有, 长, 宽, left, top 等具体位置属性, 同时这些属性也有缓存
+    _getItemStyle: (index: number) => Object;
+
+    // 获取序号 ,   overscanStartIndex,overscanStopIndex, visibleStartIndex, visibleStopIndex
+    _getRangeToRender(): [number, number, number, number]
+
+    // 滚动时触发对应回调, 更新scrollOffset
+    _onScrollHorizontal = (event: ScrollEvent): void
+
+    // 同上
+    _onScrollVertical = (event: ScrollEvent): void
 })
 
 export default FixedSizeList;
