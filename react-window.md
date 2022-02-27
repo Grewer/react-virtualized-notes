@@ -30,16 +30,30 @@ const App = () => (
 
 相对 react-virtual 的使用来说简单了很多, 使用方便, 但是相对地, 暴露的也少了一点点
 
-### 解析
+## 解析
 
 首先它是在一整个 `createListComponent` 的基础上来创建 List 的具体方法的:
 
 ```tsx
 const FixedSizeList = createListComponent({
     // ...
-    // 这里陈列几个函数和他的具体作用
+    // 这里陈列几个主要函数和他的具体作用
 
-    // 滚动至 scrollOffset 的位置
+    
+})
+
+export default FixedSizeList;
+```
+
+这里先说下 createListComponent 的大体方法:
+
+```tsx
+export default function createListComponent({
+  // 省略
+}) {
+  return class List extends PureComponent {
+
+// 滚动至 scrollOffset 的位置
     scrollTo = (scrollOffset: number):void
 
     // 滚动至某一 item 上, 通过传递对应序号
@@ -64,11 +78,20 @@ const FixedSizeList = createListComponent({
 
     // 同上
     _onScrollVertical = (event: ScrollEvent): void
-})
 
-export default FixedSizeList;
+    // 渲染函数
+    render(){}
+  }
+  
+}
+
 ```
-我们先看 createListComponent 方法(这里我会忽略掉 flow 的部分语法):
+
+
+### createListComponent
+
+下面我们就详情的解析一下这个组件的方法:
+
 
 ```tsx
 export default function createListComponent({
@@ -282,7 +305,7 @@ export default function createListComponent({
               key: itemKey(index, itemData),
               index,
               isScrolling: useIsScrolling ? isScrolling : undefined,
-              style: this._getItemStyle(index),
+              style: this._getItemStyle(index), // render 时获取 style
             })
           );
         }
@@ -415,7 +438,7 @@ export default function createListComponent({
     _getItemStyle = (index: number): Object => {
       const { direction, itemSize, layout } = this.props;
 
-      // 缓存
+      // 缓存 , itemSize, layout, direction 有改变 也会造成缓存清空
       const itemStyleCache = this._getItemStyleCache(
         shouldResetStyleCacheOnItemSizeChange && itemSize,
         shouldResetStyleCacheOnItemSizeChange && layout,
@@ -602,6 +625,7 @@ export default function createListComponent({
         //  _getItemStyleCache 的具体作用, 他是一个经过 memoizeOne 过的函数
         // 而 memoizeOne 是来源于`memoize-one`仓库 https://www.npmjs.com/package/memoize-one
         // 用处是缓存最近的一个结果 而这里是返回一个空对象
+        // 在更新后清空 style
         this._getItemStyleCache(-1, null);
       });
     };
@@ -610,5 +634,135 @@ export default function createListComponent({
 
 ```
 
-validateProps,
+
+### FixedSizeList
+
+这个组件就是通过 createListComponent 来创建的最终结果:
+
+```tsx
+
+const FixedSizeList = createListComponent({
+  // 前三个参数都十分简单, 
+  getItemOffset: ({ itemSize }: Props<any>, index: number): number =>
+    index * ((itemSize: any): number),
+
+  getItemSize: ({ itemSize }: Props<any>, index: number): number =>
+    ((itemSize: any): number),
+
+  getEstimatedTotalSize: ({ itemCount, itemSize }: Props<any>) =>
+    ((itemSize: any): number) * itemCount,
+
+//  通过  index 算出 offset 距离, 是一个比较 pure 的计算函数
+  getOffsetForIndexAndAlignment: (
+    { direction, height, itemCount, itemSize, layout, width }: Props<any>,
+    index: number,
+    align: ScrollToAlign,
+    scrollOffset: number
+  ): number => {
+    const isHorizontal = direction === 'horizontal' || layout === 'horizontal';
+    const size = (((isHorizontal ? width : height): any): number);
+    const lastItemOffset = Math.max(
+      0,
+      itemCount * ((itemSize: any): number) - size
+    );
+    const maxOffset = Math.min(
+      lastItemOffset,
+      index * ((itemSize: any): number)
+    );
+    const minOffset = Math.max(
+      0,
+      index * ((itemSize: any): number) - size + ((itemSize: any): number)
+    );
+
+//  针对不同的 align 变量 做出不同应对
+    if (align === 'smart') {
+      if (
+        scrollOffset >= minOffset - size &&
+        scrollOffset <= maxOffset + size
+      ) {
+        align = 'auto';
+      } else {
+        align = 'center';
+      }
+    }
+
+    switch (align) {
+      case 'start':
+        return maxOffset;
+      case 'end':
+        return minOffset;
+      case 'center': {
+        const middleOffset = Math.round(
+          minOffset + (maxOffset - minOffset) / 2
+        );
+        if (middleOffset < Math.ceil(size / 2)) {
+          return 0; // 开始
+        } else if (middleOffset > lastItemOffset + Math.floor(size / 2)) {
+          return lastItemOffset;  //结束的位置
+        } else {
+          return middleOffset;
+        }
+      }
+      case 'auto':
+      default:
+        if (scrollOffset >= minOffset && scrollOffset <= maxOffset) {
+          return scrollOffset;
+        } else if (scrollOffset < minOffset) {
+          return minOffset;
+        } else {
+          return maxOffset;
+        }
+    }
+  },
+
+  getStartIndexForOffset: (
+    { itemCount, itemSize }: Props<any>,
+    offset: number
+  ): number =>
+    Math.max(
+      0,
+      Math.min(itemCount - 1, Math.floor(offset / ((itemSize: any): number)))
+    ),
+
+  // 获取开始和结束的 index
+  getStopIndexForStartIndex: (
+    { direction, height, itemCount, itemSize, layout, width }: Props<any>,
+    startIndex: number,
+    scrollOffset: number
+  ): number => {
+    const isHorizontal = direction === 'horizontal' || layout === 'horizontal';
+    const offset = startIndex * ((itemSize: any): number);
+    const size = (((isHorizontal ? width : height): any): number);
+    const numVisibleItems = Math.ceil(
+      (size + scrollOffset - offset) / ((itemSize: any): number)
+    );
+    return Math.max(
+      0,
+      Math.min(
+        itemCount - 1,
+        startIndex + numVisibleItems - 1
+      )
+    );
+  },
+
+  // 默认空
+  initInstanceProps(props: Props<any>): any {
+    // Noop
+  },
+
+  // 是否在滚动完毕后重置缓存
+  shouldResetStyleCacheOnItemSizeChange: true,
+
+  // 验证参数, 只在 dev 情况下有用估忽略
+  validateProps: ({ itemSize }: Props<any>): void => {
+  },
+});
+
+```
+
+通过前面 List demo 级别的调用, 我们就很容易来创建一个简单的虚拟列表
+
+## Grid 和 List 的区别
+
+
 
