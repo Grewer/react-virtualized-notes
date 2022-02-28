@@ -2,7 +2,6 @@
 
 这篇是 react-window 的源码阅读, 因为此库使用的是 flow, 所以会涉及一些特殊的东西, 但是我会讲清楚的
 
-
 ## 使用
 
 ### List
@@ -10,9 +9,9 @@
 首先是 List 的使用:
 
 ```tsx
-import { FixedSizeList as List } from 'react-window';
+import {FixedSizeList as List} from 'react-window';
 
-const Row = ({ index, style }) => (
+const Row = ({index, style}) => (
     <div style={style}>Row {index}</div>
 );
 
@@ -39,7 +38,7 @@ const FixedSizeList = createListComponent({
     // ...
     // 这里陈列几个主要函数和他的具体作用
 
-    
+
 })
 
 export default FixedSizeList;
@@ -49,49 +48,48 @@ export default FixedSizeList;
 
 ```tsx
 export default function createListComponent({
-  // 省略
-}) {
-  return class List extends PureComponent {
+                                                // 省略
+                                            }) {
+    return class List extends PureComponent {
 
-// 滚动至 scrollOffset 的位置
-    scrollTo = (scrollOffset: number):void
+        // 滚动至 scrollOffset 的位置
+        scrollTo = (scrollOffset: number): void
 
-    // 滚动至某一 item 上, 通过传递对应序号
-    scrollToItem(index: number, align: ScrollToAlign = 'auto'): void
+        // 滚动至某一 item 上, 通过传递对应序号
+        scrollToItem(index: number, align: ScrollToAlign = 'auto'): void
 
-    // 缓存参数
-    _callOnItemsRendered: (
-      overscanStartIndex: number,
-      overscanStopIndex: number,
-      visibleStartIndex: number,
-      visibleStopIndex: number
-    ) => void;
+        // 缓存参数
+        _callOnItemsRendered: (
+            overscanStartIndex: number,
+            overscanStopIndex: number,
+            visibleStartIndex: number,
+            visibleStopIndex: number
+        ) => void;
 
-    // 通过 index 来获取对应的style, 其中有, 长, 宽, left, top 等具体位置属性, 同时这些属性也有缓存
-    _getItemStyle: (index: number) => Object;
+        // 通过 index 来获取对应的style, 其中有, 长, 宽, left, top 等具体位置属性, 同时这些属性也有缓存
+        _getItemStyle: (index: number) => Object;
 
-    // 获取序号 ,   overscanStartIndex,overscanStopIndex, visibleStartIndex, visibleStopIndex
-    _getRangeToRender(): [number, number, number, number]
+        // 获取序号 ,   overscanStartIndex,overscanStopIndex, visibleStartIndex, visibleStopIndex
+        _getRangeToRender(): [number, number, number, number]
 
-    // 滚动时触发对应回调, 更新scrollOffset
-    _onScrollHorizontal = (event: ScrollEvent): void
+        // 滚动时触发对应回调, 更新scrollOffset
+        _onScrollHorizontal = (event: ScrollEvent): void
 
-    // 同上
-    _onScrollVertical = (event: ScrollEvent): void
+        // 同上
+        _onScrollVertical = (event: ScrollEvent): void
 
-    // 渲染函数
-    render(){}
-  }
-  
+        // 渲染函数
+        render() {
+        }
+    }
+
 }
 
 ```
 
-
 ### createListComponent
 
 下面我们就详情的解析一下这个组件的方法:
-
 
 ```tsx
 export default function createListComponent({
@@ -371,7 +369,7 @@ export default function createListComponent({
         })
     );
 
-// 缓存这 3 个数据
+    // 缓存这 3 个数据
     _callOnScroll: (
       scrollDirection: ScrollDirection,
       scrollOffset: number,
@@ -562,7 +560,7 @@ export default function createListComponent({
       }, this._resetIsScrollingDebounced);
     };
 
-// 同上 , 这里就不多说了
+    // 同上 , 这里就不多说了
     _onScrollVertical = (event: ScrollEvent): void => {
       const { clientHeight, scrollHeight, scrollTop } = event.currentTarget;
       this.setState(prevState => {
@@ -634,7 +632,6 @@ export default function createListComponent({
 
 ```
 
-
 ### FixedSizeList
 
 这个组件就是通过 createListComponent 来创建的最终结果:
@@ -642,17 +639,17 @@ export default function createListComponent({
 ```tsx
 
 const FixedSizeList = createListComponent({
-  // 前三个参数都十分简单, 
-  getItemOffset: ({ itemSize }: Props<any>, index: number): number =>
-    index * ((itemSize: any): number),
+    // 前三个参数都十分简单, 
+    getItemOffset: ({itemSize}: Props<any>, index: number): number =>
+        index * ((itemSize: any): number),
 
-  getItemSize: ({ itemSize }: Props<any>, index: number): number =>
-    ((itemSize: any): number),
+    getItemSize: ({itemSize}: Props<any>, index: number): number =>
+        ((itemSize: any): number),
 
-  getEstimatedTotalSize: ({ itemCount, itemSize }: Props<any>) =>
-    ((itemSize: any): number) * itemCount,
+    getEstimatedTotalSize: ({itemCount, itemSize}: Props<any>) =>
+        ((itemSize: any): number) * itemCount,
 
-//  通过  index 算出 offset 距离, 是一个比较 pure 的计算函数
+    //  通过  index 算出 offset 距离, 是一个比较 pure 的计算函数
   getOffsetForIndexAndAlignment: (
     { direction, height, itemCount, itemSize, layout, width }: Props<any>,
     index: number,
@@ -745,24 +742,35 @@ const FixedSizeList = createListComponent({
     );
   },
 
-  // 默认空
-  initInstanceProps(props: Props<any>): any {
-    // Noop
-  },
+    // 默认空
+    initInstanceProps(props: Props<any>): any {
+        // Noop
+    },
 
-  // 是否在滚动完毕后重置缓存
-  shouldResetStyleCacheOnItemSizeChange: true,
+    // 是否在滚动完毕后重置缓存
+    shouldResetStyleCacheOnItemSizeChange: true,
 
-  // 验证参数, 只在 dev 情况下有用估忽略
-  validateProps: ({ itemSize }: Props<any>): void => {
-  },
+    // 验证参数, 只在 dev 情况下有用估忽略
+    validateProps: ({itemSize}: Props<any>): void => {
+    },
 });
 
 ```
 
 通过前面 List demo 级别的调用, 我们就很容易来创建一个简单的虚拟列表
 
-## Grid 和 List 的区别
+## 扩展点
 
+FixedSizeList 只是一种简单的虚拟列表情况 在 react-window 中还会适配以下情况
+
+- VariableSizeList 可适配不同 item 的高度(宽度)的情况, 但是需要传递一个参数来给予信息
+- FixedSizeGrid 支持双向的滚动, 荷香纵向都是虚拟列表, 这种情况在 table 里可能会多一点
+- VariableSizeGrid 不同高度(宽度)的双向滚动虚拟列表
+
+原理都是大同小异, 这里就不过多说明
+
+## 参考
+
+- https://github.com/bvaughn/react-window
 
 
